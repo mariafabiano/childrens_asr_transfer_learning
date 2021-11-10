@@ -22,7 +22,9 @@ class MySTDataset(Dataset):
     def __getitem__(self, idx):
     	audio_file = self.audio_files[idx]
     	audio_input, sample_rate = sf.read(audio_file)
-    	text = audio_file[:-4] + 'trn'
+    	text_file = audio_file[:-4] + 'trn'
+    	with open(text_file, 'r') as f:
+    		text = f.read().lower()
     	return audio_input, sample_rate, text
 
     def parse_data_path(self):
