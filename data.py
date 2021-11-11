@@ -14,7 +14,8 @@ class MySTDataset(Dataset):
             data_path (str): path to MyST dataset.
         """
         self.data_path = data_path
-        self.audio_files = self.parse_data_path()
+        self.audio_files = glob.glob(os.path.join(self.data_path,
+        										  '*/*/*/flac'))
 
     def __len__(self):
     	return len(self.audio_files)
@@ -27,10 +28,6 @@ class MySTDataset(Dataset):
     		text = f.read().lower()
     	return audio_input, sample_rate, text
 
-    def parse_data_path(self):
-    	data_dict = defaultdict(dict)
-    	return glob.glob(os.path.join(self.data_path, '*/*/*/flac'))
-
 class ZenodoDataset(Dataset):
 	"""Zenodo dataset."""
 
@@ -40,3 +37,12 @@ class ZenodoDataset(Dataset):
 			data_path (str): path to Zenodo dataset.
 		"""
 		self.data_path = data_path
+
+	def __len__(self):
+		pass
+
+	def __getitem__(self, idx):
+		pass
+
+	def parse_data_path(self):
+		pass
