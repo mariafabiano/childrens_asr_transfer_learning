@@ -58,7 +58,7 @@ class MySTDataset(Dataset):
         with open(text_file, 'r') as f:
             text = f.read().lower().strip()
             text = re.sub(self.chars_to_ignore, '', text)
-            text = re.sub('<[a-zA-Z|_]*>', '', text) + " "
+            text = re.sub('<[a-zA-Z|_]*>', '', text)
             text = text.replace('(())', '') # Ignore noise.
         return text
 
@@ -72,7 +72,7 @@ class MySTDataset(Dataset):
 
     def remove_short_audio(self):
       min_input_length_in_sec = 1.0
-      min_char_count = 1
+      min_char_count = 2
       files_to_keep = []
       for i in range(len(self.audio_files)):
          audio_input, sample_rate = librosa.load(self.audio_files[i], sr=self.sample_rate)
