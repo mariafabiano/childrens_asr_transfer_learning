@@ -15,11 +15,29 @@ import numpy as np
 import librosa
 from torch.utils.data import Dataset
 
+from collections import defaultdict
+import glob
+import os
+import re
+import numpy as np
+
+import librosa
+from torch.utils.data import Dataset
+
+from collections import defaultdict
+import glob
+import os
+import re
+import numpy as np
+
+import librosa
+from torch.utils.data import Dataset
+
 class MySTDataset(Dataset):
     """MyST dataset."""
 
     def __init__(self, data_path, sample_rate=16000,
-		             chars_to_ignore_regex='[\,\?\.\!\-\;\:\"\<\>\_]'):
+		             chars_to_ignore_regex='[\,\?\.\!\-\;\:\"]'):
         """
         Args:
             data_path (str): path to MyST dataset.
@@ -28,13 +46,21 @@ class MySTDataset(Dataset):
         self.audio_files = glob.glob(os.path.join(self.data_path,
         										  '*/*/*.flac'))
         self.sample_rate = sample_rate
+        self.chars_to_ignore = chars_to_ignore_regex
         self.remove_short_audio()
         print(f'# of audio files after removing short audio: {len(self.audio_files)}')
-        self.chars_to_ignore = chars_to_ignore_regex
         self.processor = None
 
     def init_processor(self, processor):
       self.processor = processor
+
+    def read_text_file(self, text_file):
+        with open(text_file, 'r') as f:
+            text = f.read().lower().strip()
+            text = re.sub(self.chars_to_ignore, '', text)
+            text = re.sub('<[a-zA-Z|_]*>', '', text) + " "
+            text = text.replace('(())', '') # Ignore noise.
+        return text
 
     def extract_all_chars(self):
         vocab = set()
@@ -46,10 +72,13 @@ class MySTDataset(Dataset):
 
     def remove_short_audio(self):
       min_input_length_in_sec = 1.0
+      min_char_count = 1
       files_to_keep = []
       for i in range(len(self.audio_files)):
          audio_input, sample_rate = librosa.load(self.audio_files[i], sr=self.sample_rate)
-         if len(audio_input) >= sample_rate*1:
+         text_file = self.audio_files[i][:-4] + 'trn'
+         text = self.read_text_file(text_file)
+         if len(audio_input) >= sample_rate*1 and len(text) > min_char_count:
            files_to_keep.append(self.audio_files[i])
       self.audio_files = files_to_keep
        
@@ -57,19 +86,13 @@ class MySTDataset(Dataset):
         batch = {}
 
         # batched output is "un-batched" to ensure mapping is correct
-        batch["input_values"] = self.processor(np.array(audio_array), sampling_rate=self.sample_rate).input_values[0]
+        batch["input_values"] = self.processor(np.array(audio_array),
+                                               sampling_rate=self.sample_rate).input_values[0]
         batch["input_length"] = len(batch["input_values"])
         
         with self.processor.as_target_processor():
             batch["labels"] = self.processor(text).input_ids
         return batch
-
-    def read_text_file(self, text_file):
-        with open(text_file, 'r') as f:
-            text = f.read().lower().strip()
-            text = re.sub(self.chars_to_ignore, '', text) + " "
-            text = text.replace('(())', 's') # Ignore noise.
-        return text
 
     def __len__(self):
         return len(self.audio_files)
@@ -83,8 +106,11 @@ class MySTDataset(Dataset):
             if self.processor is not None:
                 prepared_audio_dict = self.prepare_dataset(audio_input, text)
                 return prepared_audio_dict
-            return {'audio': {'array': audio_input, 'path': audio_file, 'sampling_rate': self.sample_rate}, 'file': audio_file, 'text': text}
-
+            return {'audio': {'array': audio_input,
+                              'path': audio_file,
+                              'sampling_rate': self.sample_rate},
+                    'file': audio_file,
+                    'text': text} 
         else:
             audio_files = None
             if isinstance(idx, slice):
@@ -97,7 +123,11 @@ class MySTDataset(Dataset):
             for text_file in text_files:
                 text = self.read_text_file(text_file)
                 texts.append(text)
-            return {'audio': [{'array': audio, 'path': path, 'sampling_rate': self.sample_rate} for audio, path in zip(audio_input, audio_files)], 'file': audio_files, 'text': texts}
+            return {'audio': [{'array': audio,
+                               'path': path,
+                               'sampling_rate': self.sample_rate} for audio, path in zip(audio_input, audio_files)],
+                    'file': audio_files,
+                    'text': texts}
 
 
 class ZenodoDataset(Dataset):
@@ -124,4 +154,3 @@ class ZenodoDataset(Dataset):
 		# Split by underscore, join together by space, convert to lowercase.
 		text = ' '.join(text.split('_')).lower().strip()
 		return {'audio': audio_input, 'text': text, 'file': audio_file}
-
