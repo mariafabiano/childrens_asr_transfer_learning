@@ -110,13 +110,14 @@ class ZenodoDataset(Dataset):
 				 data_path,
 				 sample_rate=16000,
 				 chars_to_ignore_regex='[\,\?\.\!\-\;\:\"]',
-				 native_extension='english_words_sentences/*_native/studio_mic/*/*.wav'):
+				 words_sentences='english_words_sentences/*/studio_mic/*/*.wav',
+				 free_speech='english_free_speech/*/studio_mic/*/*.wav'):
 		"""
 		Args:
 			data_path (str): path to Zenodo dataset.
 		"""
 		self.data_path = data_path
-		self.audio_files = glob.glob(os.path.join(self.data_path, native_extension))
+		self.audio_files = glob.glob(os.path.join(self.data_path, words_sentences)) + glob.glob(os.path.join(self.data_path, free_speech))
 		self.sample_rate = sample_rate
 		self.chars_to_ignore = chars_to_ignore_regex
 		self.remove_short_audio()
@@ -131,7 +132,7 @@ class ZenodoDataset(Dataset):
 		text = audio_file.split('/')[-1][:-4]
 		# Split by underscore, join together by space, convert to lowercase.
 		text = ' '.join(text.split('_')).lower().strip()
-		text = text.read().lower().strip()
+		text = text.lower().strip()
 		text = re.sub(self.chars_to_ignore, '', text)
 		text = re.sub('<[a-zA-Z|_]*>', '', text)
 		text = text.replace('(())', '') # Ignore noise.
@@ -143,8 +144,7 @@ class ZenodoDataset(Dataset):
 		files_to_keep = []
 		for i in range(len(self.audio_files)):
 			audio_input, sample_rate = librosa.load(self.audio_files[i], sr=self.sample_rate)
-			text_file = self.audio_files[i][:-4] + 'trn'
-			text = self.read_text_file(text_file)
+			text = self.read_text(self.audio_files[i])
 			if len(audio_input) >= sample_rate*min_input_length_in_sec and len(text) > min_char_count:
 				files_to_keep.append(self.audio_files[i])
 		self.audio_files = files_to_keep
